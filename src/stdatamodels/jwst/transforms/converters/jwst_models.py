@@ -21,6 +21,7 @@ __all__ = [
     "Rotation3DToGWAConverter",
     "Slit2MsaConverter",
     "Slit2GwaConverter",
+    "SlitToIntConverter",
 ]
 
 
@@ -150,7 +151,25 @@ class Slit2GwaConverter(TransformConverterBase):
         return Slit2Gwa(node["slits"], node["models"])
 
     def to_yaml_tree_transform(self, model, tag, ctx):
-        node = {"slits": model._slits, "models": model.models}
+        node = {'slits': model._slits,
+                'models': model.models,}
+        return node
+
+
+class Msa2SlitConverter(TransformConverterBase):
+
+    tags = ["tag:stsci.edu:jwst_pipeline/msa_to_slit-*"]
+
+    types = ["stdatamodels.jwst.transforms.models.Msa2Slit"]
+
+    def from_yaml_tree_transform(self, node, tag, ctx):
+
+        from stdatamodels.jwst.transforms.models import Msa2Slit
+
+        return Msa2Slit(node['slits'], node['models'])
+
+    def to_yaml_tree_transform(self, model, tag, ctx):
+        node = {'slits': model._slits, 'models': model.models,}
         return node
 
 
