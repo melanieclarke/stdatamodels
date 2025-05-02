@@ -1,12 +1,6 @@
-<<<<<<< HEAD
 id: asdf://stsci.edu/jwst_pipeline/manifests/jwst_transforms-1.2.0
 extension_uri: asdf://stsci.edu/jwst_pipeline/extensions/jwst_transforms-1.2.0
 title: JWST Transform extension 1.2.0
-=======
-id: asdf://stsci.edu/jwst_pipeline/manifests/jwst_transforms-1.1.0
-extension_uri: asdf://stsci.edu/jwst_pipeline/extensions/jwst_transforms-1.1.0
-title: JWST Transform extension 1.1.0
->>>>>>> 37a902b (add schemas)
 description: |-
   A set of tags for serializing data transforms for the JWST pipeline.
 asdf_standard_requirement:
