@@ -11,6 +11,7 @@ registered with ASDF through entry points.
 import math
 import warnings
 from collections import namedtuple
+from itertools import chain
 
 import numpy as np
 from astropy.modeling.core import Model
@@ -43,6 +44,8 @@ __all__ = [
     "Rotation3DToGWA",
     "AngleFromGratingEquation",
     "WavelengthFromGratingEquation",
+    "SlitToIntMapper",
+    "IntToSlitMapper",
 ]
 
 
@@ -2695,7 +2698,6 @@ class V23ToSky(Rotation3D):
 
     def __call__(self, v2, v3, **kwargs):
         """Override default call to efficiently iterate over an array."""
-        from itertools import chain
 
         inputs, format_info = self.prepare_inputs(v2, v3)
         parameters = self._param_sets(raw=True)
@@ -2785,3 +2787,66 @@ def assess_model(model, x=0, y=0, t=0):
         else:
             raise ValueError(f"{model} has incorrect number of inputs required.")
     return output
+
+
+class SlitMapper(Model):
+
+    n_inputs = 1
+    n_outputs = 1
+    fittable = False
+    linear = False
+
+    def __init__(self, mapping, name=None, meta=None):
+        self._mapping = mapping
+        super().__init__(name=name, meta=meta)
+
+    @property
+    def mapping(self):
+        return self._mapping
+
+    def evaluate(self, x):
+        return x
+
+    def __call__(self, x, **kwargs):
+        x = self._mapping[x]
+        print(f"x {x}")
+        inputs, format_info = self.prepare_inputs(x)
+        print(f"inputs {inputs}")
+        parameters = self._param_sets(raw=True)
+        outputs = self.evaluate(*chain(inputs, parameters))
+        if self.n_outputs == 1:
+            outputs = (outputs,)
+        return self.prepare_outputs(format_info, *outputs)
+
+
+class SlitToIntMapper(SlitMapper):
+    def inverse(self):
+        mapping = dict(zip(self.mapping.values(), self.mapping.keys()))
+        return IntToSlitMapper(mapping)
+
+
+class IntToSlitMapper(SlitMapper):
+
+    n_inputs = 1
+    n_outputs = 1
+    fittable = False
+    linear = False
+
+    def inverse(self):
+        mapping = dict(zip(self.mapping.values(), self.mapping.keys()))
+        return SlitToIntMapper(mapping)
+
+    def evaluate(self, x):
+        return self.mapping[x.item()]
+
+    def __call__(self, x, **kwargs):
+        #x = self._mapping[x]
+        print(f"x {x}")
+        inputs, format_info = self.prepare_inputs(x)
+        print(f"inputs {inputs}")
+        parameters = self._param_sets(raw=True)
+        outputs = self.evaluate(*chain(inputs, parameters))
+        # if self.n_outputs == 1:
+        #     outputs = (outputs,)
+        # return self.prepare_outputs(format_info, *outputs)
+        return outputs

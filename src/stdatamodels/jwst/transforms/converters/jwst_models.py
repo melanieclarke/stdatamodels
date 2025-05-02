@@ -416,6 +416,36 @@ class CoordsConverter(TransformConverterBase):
         elif isinstance(model, Unitless2DirCos):
             model_type = "unitless2directional"
         else:
-            raise TypeError(f"Model of type {model.__class__} i snot supported.")
+            raise TypeError(f"Model of type {model.__class__} is not supported.")
         node = {"model_type": model_type}
+        return node
+
+
+class SlitToIntConverter(TransformConverterBase):
+    tags = ["tag:stsci.edu:jwst_pipeline/nrs_slit_to_int-*"]
+
+    types = [
+        "stdatamodels.jwst.transforms.models.SlitToIntMapper",
+        "stdatamodels.jwst.transforms.models.IntToSlitMapper",
+    ]
+
+    def from_yaml_tree_transform(self, node, tag, ctx):
+        from stdatamodels.jwst.transforms.models import SlitToIntMapper, IntToSlitMapper
+
+        mapping = dict(zip(node["mapping_keys"], node["mapping_values"]))
+
+        if node["model_type"] == "SlitToIntMapper":
+            return SlitToIntMapper(mapping)
+        elif node["model_type"] == "IntToSlitMapper":
+            return IntToSlitMapper(mapping)
+        else:
+            raise TypeError("Unknown model_type %s " % node["model_type"])
+
+    def to_yaml_tree_transform(self, model, tag, ctx):
+        from stdatamodels.jwst.transforms.models import SlitToIntMapper, IntToSlitMapper
+
+        node = {}
+        node["model_type"] = model.__class__.__name__
+        node["mapping_keys"] = list(model.mapping.keys())
+        node["mapping_values"] = list(model.mapping.values())
         return node
