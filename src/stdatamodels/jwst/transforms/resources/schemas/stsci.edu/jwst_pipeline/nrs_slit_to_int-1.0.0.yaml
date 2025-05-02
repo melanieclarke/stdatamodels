@@ -1,0 +1,45 @@
+%YAML 1.1
+---
+$schema: "http://stsci.edu/schemas/yaml-schema/draft-01"
+id: "http://stsci.edu/schemas/jwst_pipeline/nrs-slit-to-int-1.0.0"
+
+title: >
+  Map NRS FS string names to integers.
+
+description: |
+  Store a mapping of string slit names to integers and convert between them.
+  This is to allow using the NRS FS string names as inputs to models.
+  Supports models SlitToIntMapper and IntToSlitMapper.
+
+examples:
+  -
+    - Convert directional cosines to vectors.
+    - asdf-standard-1.6.0
+    - |
+        !<tag:stsci.edu:jwst_pipeline/coords-1.1.0>
+          model_type: directional2unitless
+
+  -
+    - Convert vectors to directional cosines.
+    - asdf-standard-1.6.0
+    - |
+        !<tag:stsci.edu:jwst_pipeline/coords-1.1.0>
+          model_type: unitless2directional
+
+allOf:
+  - $ref: "http://stsci.edu/schemas/asdf/transform/transform-1.3.0"
+  - type: object
+    properties:
+      model_type:
+        description: |
+          The type of class to initialize.
+        type: string
+      mapping_keys:
+        description: |
+          Mapping between strings and integers
+        type: array
+      mapping_values:
+        description: |
+          Mapping between strings and integers
+        type: array
+    required: [model_type, mapping_keys, mapping_values]
