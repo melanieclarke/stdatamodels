@@ -16,6 +16,7 @@ from .converters.jwst_models import (
     V23ToSkyConverter,
     Msa2SlitConverter,
     Slit2GwaConverter,
+    SlitToIntConverter,
 )
 
 
@@ -34,6 +35,7 @@ _CONVERTERS = [
     NIRISSGrismDispersionConverter(),
     GratingEquationConverter(),
     SnellConverter(),
+    SlitToIntConverter(),
 ]
 
 # The order here is important; asdf will prefer to use extensions

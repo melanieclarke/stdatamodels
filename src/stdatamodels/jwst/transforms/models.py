@@ -11,6 +11,7 @@ registered with ASDF through entry points.
 import math
 import warnings
 from collections import namedtuple
+from itertools import chain
 
 import numpy as np
 from astropy.modeling.core import Model
@@ -43,6 +44,8 @@ __all__ = [
     "Rotation3DToGWA",
     "AngleFromGratingEquation",
     "WavelengthFromGratingEquation",
+    "SlitToIntMapper",
+    "IntToSlitMapper",
 ]
 
 
@@ -453,7 +456,64 @@ class Gwa2Slit(Model):
             Wavelength.
         """
         index = self.slit_ids.index(name)
-        return (name,) + self.models[index](x, y, z)
+        return (name, ) + self.models[index](x, y, z)
+
+    def inverse(self):
+        inv_models = [m.inverse for m in self.models]
+        return Slit2Gwa(self.slits, inv_models)
+
+
+class Slit2Gwa(Model):
+    """
+    NIRSpec slit to GWA transform.
+
+    Parameters
+    ----------
+    slits : list
+        A list of open slits.
+        A slit is a namedtuple of type `~stdatamodels.jwst.transforms.models.Slit`
+        Slit("name", "shutter_id", "dither_position", "xcen", "ycen", "ymin", "ymax",
+        "quadrant", "source_id", "shutter_state", "source_name",
+        "source_alias", "stellarity", "source_xpos", "source_ypos",
+        "source_ra", "source_dec"])
+    models : list
+        List of models (`~astropy.modeling.core.Model`) corresponding to the
+        list of slits.
+    """
+    _separable = False
+
+    n_inputs = 4
+    n_outputs = 4
+
+    def __init__(self, slits, models):
+        if isiterable(slits[0]):
+            self._slits = [tuple(s) for s in slits]
+            self.slit_ids = [s[0] for s in self._slits]
+        else:
+            self._slits = list(slits)
+            self.slit_ids = self._slits
+
+        self.models = models
+        super(Slit2Gwa, self).__init__()
+        self.outputs = ('name', 'angle1', 'angle2', 'angle3')
+        """ Name of the slit and the three angle coordinates at the GWA going from detector to sky."""
+        self.inputs = ('name', 'x_slit', 'y_slit', 'lam')
+        """ Name of the slit, x and y coordinates within the virtual slit and wavelength."""
+
+    @property
+    def slits(self):
+        if isiterable(self._slits[0]):
+            return [Slit(*row) for row in self._slits]
+        else:
+            return self.slit_ids
+
+    def get_model(self, name):
+        index = self.slit_ids.index(name)
+        return self.models[index]
+
+    def evaluate(self, name, x, y, z):
+        index = self.slit_ids.index(name)
+        return (name, ) + self.models[index](x, y, z)
 
     def inverse(self):
         """Create an inverse model."""
@@ -528,7 +588,7 @@ class Slit2MsaLegacy(Model):
     _separable = False
 
     n_inputs = 3
-    n_outputs = 2
+    n_outputs = 3
 
     def __init__(self, slits, models):
         """
@@ -550,7 +610,7 @@ class Slit2MsaLegacy(Model):
         super(Slit2MsaLegacy, self).__init__()
         self.inputs = ("name", "x_slit", "y_slit")
         """ Name of the slit, x and y coordinates within the virtual slit."""
-        self.outputs = ("x_msa", "y_msa")
+        self.outputs = ("name", "x_msa", "y_msa")
         """ x and y coordinates in the MSA frame."""
         if np.iterable(slits[0]):
             self._slits = [tuple(s) for s in slits]
@@ -616,7 +676,64 @@ class Slit2MsaLegacy(Model):
             The x and y coordinates in the MSA frame.
         """
         index = self.slit_ids.index(name)
-        return self.models[index](x, y)
+        return self.models[index](x, y) + (name,)
+
+    def inverse(self):
+        models = [m.inverse for m in self.models]
+        inv_model = Msa2Slit(self.slits, models)
+        return inv_model
+
+
+class Msa2Slit(Model):
+    """
+    Transform from Nirspec ``slit_frame`` to ``msa_frame``.
+
+    Parameters
+    ----------
+    slits : list
+        A list of open slits.
+        A slit is a namedtuple, `~stdatamodels.jwst.transforms.models.Slit`
+        Slit("name", "shutter_id", "dither_position", "xcen", "ycen", "ymin", "ymax",
+        "quadrant", "source_id", "shutter_state", "source_name",
+        "source_alias", "stellarity", "source_xpos", "source_ypos",
+        "source_ra", "source_dec")
+    models : list
+        List of models (`~astropy.modeling.core.Model`) corresponding to the
+        list of slits.
+    """
+    _separable = False
+
+    n_inputs = 3
+    n_outputs = 3
+
+    def __init__(self, slits, models):
+        super(Msa2Slit, self).__init__()
+        self.inputs = ('name', 'x_slit', 'y_slit')
+        """ Name of the slit, x and y coordinates within the virtual slit."""
+        self.outputs = ('name', 'x_msa', 'y_msa')
+        """ x and y coordinates in the MSA frame."""
+        if isiterable(slits[0]):
+            self._slits = [tuple(s) for s in slits]
+            self.slit_ids = [s[0] for s in self._slits]
+        else:
+            self._slits = list(slits)
+            self.slit_ids = self._slits
+        self.models = models
+
+    @property
+    def slits(self):
+        if isiterable(self._slits[0]):
+            return [Slit(*row) for row in self._slits]
+        else:
+            return self.slit_ids
+
+    def get_model(self, name):
+        index = self.slit_ids.index(name)
+        return self.models[index]
+
+    def evaluate(self, name, x, y):
+        index = self.slit_ids.index(name)
+        return (name,) + self.models[index](x, y)
 
 
 class Slit2Msa(Model):
@@ -2581,7 +2698,6 @@ class V23ToSky(Rotation3D):
 
     def __call__(self, v2, v3, **kwargs):
         """Override default call to efficiently iterate over an array."""
-        from itertools import chain
 
         inputs, format_info = self.prepare_inputs(v2, v3)
         parameters = self._param_sets(raw=True)
@@ -2671,3 +2787,66 @@ def assess_model(model, x=0, y=0, t=0):
         else:
             raise ValueError(f"{model} has incorrect number of inputs required.")
     return output
+
+
+class SlitMapper(Model):
+
+    n_inputs = 1
+    n_outputs = 1
+    fittable = False
+    linear = False
+
+    def __init__(self, mapping, name=None, meta=None):
+        self._mapping = mapping
+        super().__init__(name=name, meta=meta)
+
+    @property
+    def mapping(self):
+        return self._mapping
+
+    def evaluate(self, x):
+        return x
+
+    def __call__(self, x, **kwargs):
+        x = self._mapping[x]
+        print(f"x {x}")
+        inputs, format_info = self.prepare_inputs(x)
+        print(f"inputs {inputs}")
+        parameters = self._param_sets(raw=True)
+        outputs = self.evaluate(*chain(inputs, parameters))
+        if self.n_outputs == 1:
+            outputs = (outputs,)
+        return self.prepare_outputs(format_info, *outputs)
+
+
+class SlitToIntMapper(SlitMapper):
+    def inverse(self):
+        mapping = dict(zip(self.mapping.values(), self.mapping.keys()))
+        return IntToSlitMapper(mapping)
+
+
+class IntToSlitMapper(SlitMapper):
+
+    n_inputs = 1
+    n_outputs = 1
+    fittable = False
+    linear = False
+
+    def inverse(self):
+        mapping = dict(zip(self.mapping.values(), self.mapping.keys()))
+        return SlitToIntMapper(mapping)
+
+    def evaluate(self, x):
+        return self.mapping[x.item()]
+
+    def __call__(self, x, **kwargs):
+        #x = self._mapping[x]
+        print(f"x {x}")
+        inputs, format_info = self.prepare_inputs(x)
+        print(f"inputs {inputs}")
+        parameters = self._param_sets(raw=True)
+        outputs = self.evaluate(*chain(inputs, parameters))
+        # if self.n_outputs == 1:
+        #     outputs = (outputs,)
+        # return self.prepare_outputs(format_info, *outputs)
+        return outputs

@@ -106,3 +106,10 @@ tags:
     This schema is for representing any model that takes coordinates and does
     some computation with them. Models have no parameters. Currently it supports
     DirCos2Unitless, Unitless2DirCos.
+- tag_uri: "tag:stsci.edu:jwst_pipeline/nrs_slit_to_int-1.0.0"
+  schema_uri: http://stsci.edu/schemas/jwst_pipeline/nrs_slit_to_int-1.0.0
+  title: Map NRS FS string names to integers.
+  description: |-
+    Store a mapping of string slit names to integers and convert between them.
+    This is to allow using the NRS FS string names as inputs to models.
+    Supports models SlitToIntMapper and IntToSlitMapper.
